@@ -20,12 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { MOCK_PROJECTS } from "@/lib/data/mock-projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { PROJECT_STATUSES } from "@/lib/utils/constants";
+import { Wifi, WifiOff } from "lucide-react";
 
 interface Props {
-  projectId: string;
+  project: any;
+  isLive?: boolean;
 }
 
 function getStatusVariant(status: string) {
@@ -43,14 +44,9 @@ const TABS: { value: DetailTab; label: string; icon: React.ElementType }[] = [
   { value: "payments", label: "Payments", icon: CreditCard },
 ];
 
-export function ProjectDetailContent({ projectId }: Props) {
+export function ProjectDetailContent({ project, isLive = false }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
-
-  const project = useMemo(
-    () => MOCK_PROJECTS.find((p) => p.id === projectId),
-    [projectId]
-  );
 
   if (!project) {
     return (
@@ -92,7 +88,14 @@ export function ProjectDetailContent({ projectId }: Props) {
                     </Badge>
                   )}
                 </div>
-                <h1 className="text-xl font-bold text-text-primary">{project.title}</h1>
+                <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                  {project.title}
+                  {isLive ? (
+                    <span className="inline-flex text-success-500 text-xs font-normal border border-success-200 bg-success-50 px-2 py-0.5 rounded-full items-center"><Wifi size={12} className="mr-1"/> Live</span>
+                  ) : (
+                    <span className="inline-flex text-warning-500 text-xs font-normal border border-warning-200 bg-warning-50 px-2 py-0.5 rounded-full items-center"><WifiOff size={12} className="mr-1"/> Mock Data</span>
+                  )}
+                </h1>
                 <div className="flex flex-wrap items-center gap-3 mt-2">
                   <Badge variant={getStatusVariant(project.status)}>
                     {project.status.replace(/_/g, " ")}
@@ -223,7 +226,7 @@ export function ProjectDetailContent({ projectId }: Props) {
 }
 
 // ── Overview Tab ──
-function OverviewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
+function OverviewTab({ project }: { project: any }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Project Info */}
@@ -240,7 +243,7 @@ function OverviewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
               <div className="relative">
                 <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" />
                 <div className="space-y-4">
-                  {project.events.map((event) => {
+                  {project.events.map((event: any) => {
                     const isPast = new Date(event.eventDate) < new Date();
                     return (
                       <div key={event.id} className="flex gap-4 relative">
@@ -290,7 +293,7 @@ function OverviewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
             </h3>
           </div>
           <div className="divide-y divide-border-subtle">
-            {project.services.map((s) => (
+            {project.services.map((s: any) => (
               <div key={s.id} className="px-5 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text-primary">{s.serviceName}</p>
@@ -338,7 +341,7 @@ function OverviewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
               </h3>
             </div>
             <div className="p-4 space-y-3">
-              {project.crew.map((c) => (
+              {project.crew.map((c: any) => (
                 <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-sunken">
                   <Avatar name={c.contactName} size="sm" />
                   <div className="flex-1 min-w-0">
@@ -384,13 +387,13 @@ function OverviewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
 }
 
 // ── Events Tab ──
-function EventsTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
+function EventsTab({ project }: { project: any }) {
   if (project.events.length === 0) {
     return <EmptyState title="No events scheduled" description="Add events to this project." />;
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {project.events.map((event) => {
+      {project.events.map((event: any) => {
         const isPast = new Date(event.eventDate) < new Date();
         return (
           <div key={event.id} className={`card p-5 ${isPast ? "opacity-70" : ""}`}>
@@ -428,7 +431,7 @@ function EventsTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
 }
 
 // ── Services Tab ──
-function ServicesTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
+function ServicesTab({ project }: { project: any }) {
   if (project.services.length === 0) {
     return <EmptyState title="No services added" description="Add services to this project." />;
   }
@@ -444,7 +447,7 @@ function ServicesTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
           </tr>
         </thead>
         <tbody>
-          {project.services.map((s) => (
+          {project.services.map((s: any) => (
             <tr key={s.id}>
               <td className="font-medium">{s.serviceName}</td>
               <td className="text-right">{s.quantity}</td>
@@ -475,7 +478,7 @@ function ServicesTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
 }
 
 // ── Crew Tab ──
-function CrewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
+function CrewTab({ project }: { project: any }) {
   if (project.crew.length === 0) {
     return (
       <EmptyState
@@ -499,7 +502,7 @@ function CrewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
           </tr>
         </thead>
         <tbody>
-          {project.crew.map((c) => (
+          {project.crew.map((c: any) => (
             <tr key={c.id}>
               <td>
                 <div className="flex items-center gap-2">
@@ -526,7 +529,7 @@ function CrewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
           <tr className="bg-surface-sunken">
             <td colSpan={4} className="font-semibold px-4 py-3">Total Crew Cost</td>
             <td className="text-right font-mono font-bold px-4 py-3">
-              {formatCurrency(project.crew.reduce((acc, c) => acc + c.totalCost, 0))}
+              {formatCurrency(project.crew.reduce((acc: number, c: any) => acc + c.totalCost, 0))}
             </td>
             <td />
           </tr>
@@ -537,7 +540,7 @@ function CrewTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
 }
 
 // ── Payments Tab ──
-function PaymentsTab({ project }: { project: (typeof MOCK_PROJECTS)[number] }) {
+function PaymentsTab({ project }: { project: any }) {
   return (
     <EmptyState
       title="No payments recorded"

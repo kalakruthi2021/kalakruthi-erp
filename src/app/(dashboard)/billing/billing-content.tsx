@@ -17,36 +17,42 @@ import { Avatar } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { TabFilter } from "@/components/ui/tab-filter";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { MOCK_PAYMENTS, type MockPayment } from "@/lib/data/mock-payments";
+import { type MockPayment } from "@/lib/data/mock-payments";
 import { formatCurrency } from "@/lib/utils/currency";
 
 type PaymentTab = "all" | "incoming" | "outgoing";
 
-export function BillingContent() {
+interface Props {
+  initialPayments: any[];
+  isLive?: boolean;
+}
+
+export function BillingContent({ initialPayments, isLive = false }: Props) {
   const [activeTab, setActiveTab] = useState<PaymentTab>("all");
+  const [payments, setPayments] = useState(initialPayments);
 
   const filtered = useMemo(() => {
-    if (activeTab === "incoming") return MOCK_PAYMENTS.filter((p) => p.direction === "INCOMING");
-    if (activeTab === "outgoing") return MOCK_PAYMENTS.filter((p) => p.direction === "OUTGOING");
-    return MOCK_PAYMENTS;
-  }, [activeTab]);
+    if (activeTab === "incoming") return payments.filter((p) => p.direction === "INCOMING");
+    if (activeTab === "outgoing") return payments.filter((p) => p.direction === "OUTGOING");
+    return payments;
+  }, [activeTab, payments]);
 
   // Stats
-  const totalIncoming = MOCK_PAYMENTS
+  const totalIncoming = payments
     .filter((p) => p.direction === "INCOMING")
     .reduce((acc, p) => acc + p.amount, 0);
-  const totalOutgoing = MOCK_PAYMENTS
+  const totalOutgoing = payments
     .filter((p) => p.direction === "OUTGOING")
     .reduce((acc, p) => acc + p.amount, 0);
   const netCash = totalIncoming - totalOutgoing;
 
   const tabs = [
-    { value: "all", label: "All Transactions", count: MOCK_PAYMENTS.length },
-    { value: "incoming", label: "Incoming", count: MOCK_PAYMENTS.filter((p) => p.direction === "INCOMING").length },
-    { value: "outgoing", label: "Outgoing", count: MOCK_PAYMENTS.filter((p) => p.direction === "OUTGOING").length },
+    { value: "all", label: "All Transactions", count: payments.length },
+    { value: "incoming", label: "Incoming", count: payments.filter((p) => p.direction === "INCOMING").length },
+    { value: "outgoing", label: "Outgoing", count: payments.filter((p) => p.direction === "OUTGOING").length },
   ];
 
-  const columns: ColumnDef<MockPayment, unknown>[] = useMemo(
+  const columns: ColumnDef<any, unknown>[] = useMemo(
     () => [
       {
         accessorKey: "paymentDate",
@@ -158,7 +164,12 @@ export function BillingContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Payments</h1>
+          <h1 className="text-2xl font-bold text-text-primary">
+            Payments
+            {isLive && (
+              <span className="inline ml-2 text-success-500 text-xs font-normal border border-success-200 bg-success-50 px-2 py-0.5 rounded-full align-middle">Live</span>
+            )}
+          </h1>
           <p className="text-sm text-text-secondary mt-0.5">
             Track all incoming and outgoing payments.
           </p>
@@ -175,13 +186,13 @@ export function BillingContent() {
           title="Total Received"
           value={formatCurrency(totalIncoming, { compact: true })}
           icon={<TrendingUp size={18} />}
-          trend={{ value: `${MOCK_PAYMENTS.filter((p) => p.direction === "INCOMING").length} txns`, direction: "up" }}
+          trend={{ value: `${payments.filter((p) => p.direction === "INCOMING").length} txns`, direction: "up" }}
         />
         <KpiCard
           title="Total Paid Out"
           value={formatCurrency(totalOutgoing, { compact: true })}
           icon={<TrendingDown size={18} />}
-          trend={{ value: `${MOCK_PAYMENTS.filter((p) => p.direction === "OUTGOING").length} txns`, direction: "down" }}
+          trend={{ value: `${payments.filter((p) => p.direction === "OUTGOING").length} txns`, direction: "down" }}
         />
         <KpiCard
           title="Net Cash Flow"

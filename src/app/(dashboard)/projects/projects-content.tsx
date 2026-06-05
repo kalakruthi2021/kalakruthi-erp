@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { TabFilter } from "@/components/ui/tab-filter";
-import { MOCK_PROJECTS, type MockProject } from "@/lib/data/mock-projects";
+import { type MockProject } from "@/lib/data/mock-projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { PROJECT_STATUSES } from "@/lib/utils/constants";
 
@@ -51,22 +51,28 @@ function getNextEventDate(project: MockProject): string | null {
   return upcoming[0]?.eventDate ?? null;
 }
 
-export function ProjectsContent() {
+interface Props {
+  initialProjects: any[];
+  isLive?: boolean;
+}
+
+export function ProjectsContent({ initialProjects, isLive = false }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProjectTab>("all");
+  const [projects, setProjects] = useState(initialProjects);
 
   const filteredProjects = useMemo(() => {
     switch (activeTab) {
       case "active":
-        return MOCK_PROJECTS.filter((p) => ACTIVE_STATUSES.includes(p.status));
+        return projects.filter((p) => ACTIVE_STATUSES.includes(p.status));
       case "completed":
-        return MOCK_PROJECTS.filter((p) => COMPLETED_STATUSES.includes(p.status));
+        return projects.filter((p) => COMPLETED_STATUSES.includes(p.status));
       case "b2b":
-        return MOCK_PROJECTS.filter((p) =>
-          ["OUTSOURCED_WORK", "EDITING_ONLY", "PARTNER_REFERRAL"].includes(p.projectType)
+        return projects.filter((p) =>
+          ["OUTSOURCED_WORK", "EDITING_ONLY", "PARTNER_REFERRAL"].includes(p.type || p.projectType)
         );
       default:
-        return MOCK_PROJECTS;
+        return projects;
     }
   }, [activeTab]);
 
@@ -76,19 +82,19 @@ export function ProjectsContent() {
         ...tab,
         count:
           tab.value === "all"
-            ? MOCK_PROJECTS.length
+            ? projects.length
             : tab.value === "active"
-              ? MOCK_PROJECTS.filter((p) => ACTIVE_STATUSES.includes(p.status)).length
+              ? projects.filter((p) => ACTIVE_STATUSES.includes(p.status)).length
               : tab.value === "completed"
-                ? MOCK_PROJECTS.filter((p) => COMPLETED_STATUSES.includes(p.status)).length
-                : MOCK_PROJECTS.filter((p) =>
-                    ["OUTSOURCED_WORK", "EDITING_ONLY", "PARTNER_REFERRAL"].includes(p.projectType)
+                ? projects.filter((p) => COMPLETED_STATUSES.includes(p.status)).length
+                : projects.filter((p) =>
+                    ["OUTSOURCED_WORK", "EDITING_ONLY", "PARTNER_REFERRAL"].includes(p.type || p.projectType)
                   ).length,
       })),
-    []
+    [projects]
   );
 
-  const columns: ColumnDef<MockProject, unknown>[] = useMemo(
+  const columns: ColumnDef<any, unknown>[] = useMemo(
     () => [
       {
         accessorKey: "title",
@@ -98,7 +104,7 @@ export function ProjectsContent() {
           const p = row.original;
           return (
             <div className="flex items-start gap-3">
-              <Avatar name={p.customerName} size="md" />
+              <Avatar name={p.customer?.name || p.customerName} size="md" />
               <div className="min-w-0">
                 <button
                   onClick={() => router.push(`/projects/${p.id}`)}
@@ -110,7 +116,7 @@ export function ProjectsContent() {
                   )}
                 </button>
                 <p className="text-xs text-text-muted mt-0.5">
-                  {p.projectNumber} · {p.customerName}
+                  {p.projectNumber} · {p.customer?.name || p.customerName}
                 </p>
               </div>
             </div>
@@ -239,17 +245,22 @@ export function ProjectsContent() {
   );
 
   // Summary stats
-  const totalRevenue = MOCK_PROJECTS.reduce((acc, p) => acc + p.netAmount, 0);
-  const totalCollected = MOCK_PROJECTS.reduce((acc, p) => acc + p.paidAmount, 0);
+  const totalRevenue = projects.reduce((acc, p) => acc + (p.netAmount || p.totalAmount || 0), 0);
+  const totalCollected = projects.reduce((acc, p) => acc + (p.paidAmount || 0), 0);
   const totalOutstanding = totalRevenue - totalCollected;
-  const activeCount = MOCK_PROJECTS.filter((p) => ACTIVE_STATUSES.includes(p.status)).length;
+  const activeCount = projects.filter((p) => ACTIVE_STATUSES.includes(p.status)).length;
 
   return (
     <div className="space-y-5 animate-fade-in-up">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Projects</h1>
+          <h1 className="text-2xl font-bold text-text-primary">
+            Projects
+            {isLive && (
+              <span className="inline ml-2 text-success-500 text-xs font-normal border border-success-200 bg-success-50 px-2 py-0.5 rounded-full align-middle">Live</span>
+            )}
+          </h1>
           <p className="text-sm text-text-secondary mt-0.5">
             Track all photography &amp; videography projects.
           </p>
@@ -263,7 +274,7 @@ export function ProjectsContent() {
       {/* Mini KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total Projects", value: MOCK_PROJECTS.length.toString(), accent: false },
+          { label: "Total Projects", value: projects.length.toString(), accent: false },
           { label: "Active", value: activeCount.toString(), accent: false },
           { label: "Revenue", value: formatCurrency(totalRevenue, { compact: true }), accent: false },
           { label: "Outstanding", value: formatCurrency(totalOutstanding, { compact: true }), accent: totalOutstanding > 0 },
