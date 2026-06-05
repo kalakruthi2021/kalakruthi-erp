@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -11,6 +11,8 @@ import {
   Edit2,
   Trash2,
   Eye,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -18,10 +20,15 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { TabFilter } from "@/components/ui/tab-filter";
-import { MOCK_CONTACTS, type MockContact } from "@/lib/data/mock-contacts";
+import { type MockContact } from "@/lib/data/mock-contacts";
 import { CONTACT_ROLES } from "@/lib/utils/constants";
 import { AddContactModal } from "./add-contact-modal";
 import { DeleteContactDialog } from "./delete-contact-dialog";
+import {
+  createContact,
+  updateContact,
+  deleteContact as deleteContactAction,
+} from "@/lib/actions/contacts";
 
 type ContactTab = "all" | "b2c" | "b2b";
 
@@ -44,10 +51,16 @@ function getRoleBadgeVariant(role: string) {
     | "danger";
 }
 
-export function ContactsContent() {
+interface Props {
+  initialContacts: MockContact[];
+  isLive?: boolean;
+}
+
+export function ContactsContent({ initialContacts, isLive = false }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ContactTab>("all");
-  const [contacts, setContacts] = useState<MockContact[]>(MOCK_CONTACTS);
+  const [contacts, setContacts] = useState<MockContact[]>(initialContacts);
+  const [isPending, startTransition] = useTransition();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editContact, setEditContact] = useState<MockContact | null>(null);
   const [deleteContact, setDeleteContact] = useState<MockContact | null>(null);
@@ -89,21 +102,90 @@ export function ContactsContent() {
 
   // Handle add contact
   const handleAddContact = (data: MockContact) => {
-    setContacts((prev) => [data, ...prev]);
+    if (isLive) {
+      startTransition(async () => {
+        try {
+          await createContact({
+            firstName: data.firstName,
+            lastName: data.lastName || undefined,
+            phone: data.phone,
+            altPhone: data.altPhone,
+            email: data.email,
+            companyName: data.companyName,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            pincode: data.pincode,
+            source: data.source,
+            notes: data.notes,
+            roles: data.roles?.map((r) => ({
+              role: r.role,
+              designation: r.designation,
+              dailyRate: r.dailyRate,
+            })),
+          });
+          router.refresh();
+        } catch (e) {
+          console.error("Failed to create contact:", e);
+        }
+      });
+    } else {
+      setContacts((prev) => [data, ...prev]);
+    }
     setIsAddOpen(false);
   };
 
   // Handle edit contact
   const handleEditContact = (data: MockContact) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === data.id ? data : c))
-    );
+    if (isLive) {
+      startTransition(async () => {
+        try {
+          await updateContact(data.id, {
+            firstName: data.firstName,
+            lastName: data.lastName || undefined,
+            phone: data.phone,
+            altPhone: data.altPhone,
+            email: data.email,
+            companyName: data.companyName,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            pincode: data.pincode,
+            source: data.source,
+            notes: data.notes,
+            roles: data.roles?.map((r) => ({
+              role: r.role,
+              designation: r.designation,
+              dailyRate: r.dailyRate,
+            })),
+          });
+          router.refresh();
+        } catch (e) {
+          console.error("Failed to update contact:", e);
+        }
+      });
+    } else {
+      setContacts((prev) =>
+        prev.map((c) => (c.id === data.id ? data : c))
+      );
+    }
     setEditContact(null);
   };
 
   // Handle delete
   const handleDelete = (id: string) => {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
+    if (isLive) {
+      startTransition(async () => {
+        try {
+          await deleteContactAction(id);
+          router.refresh();
+        } catch (e) {
+          console.error("Failed to delete contact:", e);
+        }
+      });
+    } else {
+      setContacts((prev) => prev.filter((c) => c.id !== id));
+    }
     setDeleteContact(null);
   };
 
@@ -240,7 +322,14 @@ export function ContactsContent() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Contacts</h1>
+          <h1 className="text-2xl font-bold text-text-primary">
+            Contacts
+            {isLive ? (
+              <span className="inline ml-2" aria-label="Live — Supabase connected"><Wifi size={14} className="inline text-success-500" /></span>
+            ) : (
+              <span className="inline ml-2" aria-label="Mock data"><WifiOff size={14} className="inline text-warning-500" /></span>
+            )}
+          </h1>
           <p className="text-sm text-text-secondary mt-0.5">
             Manage all your customers, partners, and team members in one place.
           </p>
