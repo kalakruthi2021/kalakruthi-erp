@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { BillingContent } from "./billing-content";
 import { getPayments } from "@/lib/actions/payments";
+import { getProjects } from "@/lib/actions/projects";
+import { getContacts } from "@/lib/actions/contacts";
 import { MOCK_PAYMENTS } from "@/lib/data/mock-payments";
 
 export const metadata: Metadata = {
@@ -28,21 +30,33 @@ function toUIPayment(row: any) {
 }
 
 export default async function BillingPage() {
-  let payments;
+  let payments: any[] = [];
+  let projects: any[] = [];
+  let contacts: any[] = [];
   let isLive = false;
 
   try {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      const rows = await getPayments();
-      payments = rows.map(toUIPayment);
+      const [payRows, projRows, contactRows] = await Promise.all([
+        getPayments(),
+        getProjects(),
+        getContacts()
+      ]);
+      payments = payRows.map(toUIPayment);
+      projects = projRows;
+      contacts = contactRows;
       isLive = true;
     } else {
       payments = MOCK_PAYMENTS;
+      projects = [];
+      contacts = [];
     }
   } catch (err) {
-    console.error("Failed to fetch payments, using mocks", err);
+    console.error("Failed to fetch payments data, using mocks", err);
     payments = MOCK_PAYMENTS;
+    projects = [];
+    contacts = [];
   }
 
-  return <BillingContent initialPayments={payments} isLive={isLive} />;
+  return <BillingContent initialPayments={payments} projects={projects} contacts={contacts} isLive={isLive} />;
 }

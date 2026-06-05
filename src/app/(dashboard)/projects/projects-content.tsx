@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +18,10 @@ import { TabFilter } from "@/components/ui/tab-filter";
 import { type MockProject } from "@/lib/data/mock-projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { PROJECT_STATUSES } from "@/lib/utils/constants";
+import { Wifi, WifiOff } from "lucide-react";
+import { AddProjectModal } from "./add-project-modal";
+import { createProject } from "@/lib/actions/projects";
+import type { ProjectFormValues } from "@/lib/validations/project";
 
 type ProjectTab = "all" | "active" | "completed" | "b2b";
 
@@ -53,13 +57,16 @@ function getNextEventDate(project: MockProject): string | null {
 
 interface Props {
   initialProjects: any[];
+  contacts?: any[];
   isLive?: boolean;
 }
 
-export function ProjectsContent({ initialProjects, isLive = false }: Props) {
+export function ProjectsContent({ initialProjects, contacts = [], isLive = false }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProjectTab>("all");
   const [projects, setProjects] = useState(initialProjects);
+  const [isPending, startTransition] = useTransition();
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const filteredProjects = useMemo(() => {
     switch (activeTab) {
@@ -265,7 +272,7 @@ export function ProjectsContent({ initialProjects, isLive = false }: Props) {
             Track all photography &amp; videography projects.
           </p>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setIsAddOpen(true)}>
           <Plus size={16} />
           New Project
         </Button>
@@ -313,11 +320,33 @@ export function ProjectsContent({ initialProjects, isLive = false }: Props) {
         emptyTitle="No projects found"
         emptyDescription="Create your first project to get started."
         emptyAction={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsAddOpen(true)}>
             <Plus size={16} />
             New Project
           </Button>
         }
+      />
+
+      <AddProjectModal
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        contacts={contacts}
+        onSubmit={(data) => {
+          if (isLive) {
+            startTransition(async () => {
+              try {
+                await createProject(data);
+                router.refresh();
+                setIsAddOpen(false);
+              } catch (e) {
+                console.error("Failed to create project:", e);
+              }
+            });
+          } else {
+            console.warn("Mock project creation not fully supported");
+            setIsAddOpen(false);
+          }
+        }}
       />
     </div>
   );

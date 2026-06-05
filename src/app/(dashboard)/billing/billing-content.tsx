@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -17,19 +18,26 @@ import { Avatar } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { TabFilter } from "@/components/ui/tab-filter";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { type MockPayment } from "@/lib/data/mock-payments";
 import { formatCurrency } from "@/lib/utils/currency";
+import { AddPaymentModal } from "./add-payment-modal";
+import { createPayment } from "@/lib/actions/payments";
+import { Wifi, WifiOff } from "lucide-react";
 
 type PaymentTab = "all" | "incoming" | "outgoing";
 
 interface Props {
   initialPayments: any[];
+  projects?: any[];
+  contacts?: any[];
   isLive?: boolean;
 }
 
-export function BillingContent({ initialPayments, isLive = false }: Props) {
+export function BillingContent({ initialPayments, projects = [], contacts = [], isLive = false }: Props) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<PaymentTab>("all");
   const [payments, setPayments] = useState(initialPayments);
+  const [isPending, startTransition] = useTransition();
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (activeTab === "incoming") return payments.filter((p) => p.direction === "INCOMING");
@@ -174,7 +182,7 @@ export function BillingContent({ initialPayments, isLive = false }: Props) {
             Track all incoming and outgoing payments.
           </p>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setIsAddOpen(true)}>
           <Plus size={16} />
           Record Payment
         </Button>
@@ -216,13 +224,35 @@ export function BillingContent({ initialPayments, isLive = false }: Props) {
         searchKey="contactName"
         searchPlaceholder="Search by contact or project..."
         emptyTitle="No payments found"
-        emptyDescription="Record your first payment to get started."
+        emptyDescription="No payments found for the selected filter."
         emptyAction={
-          <Button size="sm">
-            <Plus size={16} />
-            Record Payment
+          <Button size="sm" variant="outline" onClick={() => setIsAddOpen(true)}>
+            Record First Payment
           </Button>
         }
+      />
+
+      <AddPaymentModal
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        projects={projects}
+        contacts={contacts}
+        onSubmit={(data) => {
+          if (isLive) {
+            startTransition(async () => {
+              try {
+                await createPayment(data);
+                router.refresh();
+                setIsAddOpen(false);
+              } catch (e) {
+                console.error("Failed to record payment:", e);
+              }
+            });
+          } else {
+            console.warn("Mock payment creation not fully supported");
+            setIsAddOpen(false);
+          }
+        }}
       />
     </div>
   );
