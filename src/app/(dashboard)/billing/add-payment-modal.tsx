@@ -29,6 +29,7 @@ interface AddPaymentModalProps {
   onSubmit: (data: PaymentFormValues) => void;
   projects: any[];
   contacts: any[];
+  defaultValues?: Partial<PaymentFormValues>;
 }
 
 export function AddPaymentModal({
@@ -37,7 +38,9 @@ export function AddPaymentModal({
   onSubmit,
   projects,
   contacts,
+  defaultValues,
 }: AddPaymentModalProps) {
+  const isEditing = !!defaultValues;
   const {
     register,
     handleSubmit,
@@ -47,10 +50,11 @@ export function AddPaymentModal({
     formState: { errors, isSubmitting },
   } = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema) as any,
-    defaultValues: {
-      direction: "INCOMING",
-      paymentMethod: "CASH",
+    defaultValues: defaultValues || {
+      amount: 0,
+      paymentMethod: "UPI",
       paymentType: "ADVANCE",
+      direction: "INCOMING",
       paymentDate: new Date().toISOString().split("T")[0],
     },
   });
@@ -76,9 +80,9 @@ export function AddPaymentModal({
       <DialogContent size="lg">
         <DialogCloseButton />
         <DialogHeader>
-          <DialogTitle>Record Payment</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Payment" : "Record Payment"}</DialogTitle>
           <DialogDescription>
-            Enter details to record a new incoming or outgoing payment.
+            {isEditing ? "Update payment details." : "Enter details for an incoming or outgoing payment."}
           </DialogDescription>
         </DialogHeader>
 
@@ -226,7 +230,7 @@ export function AddPaymentModal({
               Cancel
             </Button>
             <Button type="submit" isLoading={isSubmitting}>
-              Record Payment
+              {isEditing ? "Save Changes" : "Save Payment"}
             </Button>
           </DialogFooter>
         </form>

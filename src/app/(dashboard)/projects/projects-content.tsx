@@ -15,13 +15,29 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
 import { TabFilter } from "@/components/ui/tab-filter";
-import { type MockProject } from "@/lib/data/mock-projects";
 import { formatCurrency } from "@/lib/utils/currency";
 import { PROJECT_STATUSES } from "@/lib/utils/constants";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { AddProjectModal } from "./add-project-modal";
-import { createProject } from "@/lib/actions/projects";
+import { createProject, updateProject, deleteProject } from "@/lib/actions/projects";
 import type { ProjectFormValues } from "@/lib/validations/project";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 type ProjectTab = "all" | "active" | "completed" | "b2b";
 
@@ -47,11 +63,11 @@ function getPaymentProgress(paid: number, net: number) {
   return Math.round((paid / net) * 100);
 }
 
-function getNextEventDate(project: MockProject): string | null {
+function getNextEventDate(project: any): string | null {
   const today = new Date().toISOString().split("T")[0];
   const upcoming = project.events
-    .filter((e) => e.eventDate >= today)
-    .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+    .filter((e: any) => e.eventDate >= today)
+    .sort((a: any, b: any) => a.eventDate.localeCompare(b.eventDate));
   return upcoming[0]?.eventDate ?? null;
 }
 
@@ -67,6 +83,8 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
   const [projects, setProjects] = useState(initialProjects);
   const [isPending, startTransition] = useTransition();
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [deletingProject, setDeletingProject] = useState<string | null>(null);
 
   const filteredProjects = useMemo(() => {
     switch (activeTab) {
@@ -81,7 +99,7 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
       default:
         return projects;
     }
-  }, [activeTab]);
+  }, [activeTab, projects]);
 
   const tabsWithCounts = useMemo(
     () =>
@@ -110,20 +128,21 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
         cell: ({ row }) => {
           const p = row.original;
           return (
-            <div className="flex items-start gap-3">
-              <Avatar name={p.customer?.name || p.customerName} size="md" />
-              <div className="min-w-0">
+            <div className="flex items-center gap-4">
+              <Avatar name={p.customer?.name || p.customerName} size="md" className="shrink-0" />
+              <div className="min-w-0 flex-1">
                 <button
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  className="text-sm font-semibold text-text-primary hover:text-accent-500 transition-colors truncate block text-left"
+                  className="text-[15px] font-bold text-text-primary hover:text-accent-500 transition-colors truncate block text-left w-full"
                 >
                   {p.title}
                   {p.isUrgent && (
                     <AlertCircle size={14} className="inline ml-1.5 text-danger-500" />
                   )}
                 </button>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {p.projectNumber} · {p.customer?.name || p.customerName}
+                <p className="text-sm text-text-secondary mt-1 truncate">
+                  <span className="font-mono text-text-muted text-xs mr-2">{p.projectNumber}</span>
+                  {p.customer?.name || p.customerName}
                 </p>
               </div>
             </div>
@@ -215,7 +234,6 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
                   {progress}%
                 </span>
               </div>
-              {/* Progress bar */}
               <div className="w-full h-1.5 bg-surface-sunken rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
@@ -237,29 +255,78 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
         header: "",
         size: 50,
         enableSorting: false,
-        cell: ({ row }) => (
-          <button
-            onClick={() => router.push(`/projects/${row.original.id}`)}
-            className="p-1.5 rounded-md text-text-muted hover:text-accent-500 hover:bg-surface-sunken transition-colors"
-            title="View project"
-          >
-            <Eye size={16} />
-          </button>
-        ),
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditingProject(p)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeletingProject(p.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
       },
     ],
     [router]
   );
 
-  // Summary stats
   const totalRevenue = projects.reduce((acc, p) => acc + (p.netAmount || p.totalAmount || 0), 0);
   const totalCollected = projects.reduce((acc, p) => acc + (p.paidAmount || 0), 0);
   const totalOutstanding = totalRevenue - totalCollected;
   const activeCount = projects.filter((p) => ACTIVE_STATUSES.includes(p.status)).length;
 
+  const handleProjectSubmit = async (data: ProjectFormValues) => {
+    startTransition(async () => {
+      try {
+        if (editingProject) {
+          await updateProject(editingProject.id, data);
+          toast.success("Project updated successfully");
+        } else {
+          await createProject(data);
+          toast.success("Project created successfully");
+        }
+        setIsAddOpen(false);
+        setEditingProject(null);
+        router.refresh();
+      } catch (err) {
+        toast.error("Failed to save project");
+        console.error(err);
+      }
+    });
+  };
+
+  const handleDeleteProject = async () => {
+    if (!deletingProject) return;
+    startTransition(async () => {
+      try {
+        await deleteProject(deletingProject);
+        toast.success("Project deleted successfully");
+        setDeletingProject(null);
+        router.refresh();
+      } catch (err) {
+        toast.error("Failed to delete project");
+        console.error(err);
+      }
+    });
+  };
+
   return (
     <div className="space-y-5 animate-fade-in-up">
-      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -278,8 +345,7 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
         </Button>
       </div>
 
-      {/* Mini KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-6">
         {[
           { label: "Total Projects", value: projects.length.toString(), accent: false },
           { label: "Active", value: activeCount.toString(), accent: false },
@@ -288,13 +354,13 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
         ].map((stat) => (
           <div
             key={stat.label}
-            className="card px-4 py-3 flex flex-col"
+            className="card px-6 py-5 flex flex-col justify-center"
           >
-            <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
+            <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
               {stat.label}
             </span>
             <span
-              className={`text-lg font-bold font-mono mt-0.5 ${
+              className={`text-2xl font-bold font-mono mt-1.5 ${
                 stat.accent ? "text-warning-600" : "text-text-primary"
               }`}
             >
@@ -304,14 +370,12 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
         ))}
       </div>
 
-      {/* Tab Filters */}
       <TabFilter
         tabs={tabsWithCounts}
         activeTab={activeTab}
         onChange={(v) => setActiveTab(v as ProjectTab)}
       />
 
-      {/* Data Table */}
       <DataTable
         columns={columns}
         data={filteredProjects}
@@ -328,26 +392,49 @@ export function ProjectsContent({ initialProjects, contacts = [], isLive = false
       />
 
       <AddProjectModal
-        open={isAddOpen}
-        onOpenChange={setIsAddOpen}
-        contacts={contacts}
-        onSubmit={(data) => {
-          if (isLive) {
-            startTransition(async () => {
-              try {
-                await createProject(data);
-                router.refresh();
-                setIsAddOpen(false);
-              } catch (e) {
-                console.error("Failed to create project:", e);
-              }
-            });
-          } else {
-            console.warn("Mock project creation not fully supported");
-            setIsAddOpen(false);
-          }
+        open={isAddOpen || !!editingProject}
+        onOpenChange={(open: boolean) => {
+          setIsAddOpen(open);
+          if (!open) setEditingProject(null);
         }}
+        onSubmit={handleProjectSubmit}
+        contacts={contacts}
+        defaultValues={
+          editingProject
+            ? {
+                title: editingProject.title || "",
+                customerId: editingProject.customer_id || editingProject.customer?.id || "",
+                partnerId: editingProject.partner_id || editingProject.partner?.id || undefined,
+                projectType: editingProject.project_type as any,
+                status: editingProject.status as any,
+                location: editingProject.location || "",
+                isUrgent: editingProject.is_urgent || false,
+                notes: editingProject.notes || "",
+              }
+            : undefined
+        }
       />
+
+      <AlertDialog open={!!deletingProject} onOpenChange={(open) => !open && setDeletingProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the project and all related data (payments, events, services, crew).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteProject}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

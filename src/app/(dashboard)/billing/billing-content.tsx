@@ -11,6 +11,9 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
+  MoreHorizontal,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +23,25 @@ import { TabFilter } from "@/components/ui/tab-filter";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency } from "@/lib/utils/currency";
 import { AddPaymentModal } from "./add-payment-modal";
-import { createPayment } from "@/lib/actions/payments";
-import { Wifi, WifiOff } from "lucide-react";
+import { createPayment, updatePayment, deletePayment } from "@/lib/actions/payments";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import type { PaymentFormValues } from "@/lib/validations/payment";
 
 type PaymentTab = "all" | "incoming" | "outgoing";
 
@@ -37,7 +57,9 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
   const [activeTab, setActiveTab] = useState<PaymentTab>("all");
   const [payments, setPayments] = useState(initialPayments);
   const [isPending, startTransition] = useTransition();
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState<any | null>(null);
 
   const filtered = useMemo(() => {
     if (activeTab === "incoming") return payments.filter((p) => p.direction === "INCOMING");
@@ -45,7 +67,6 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
     return payments;
   }, [activeTab, payments]);
 
-  // Stats
   const totalIncoming = payments
     .filter((p) => p.direction === "INCOMING")
     .reduce((acc, p) => acc + p.amount, 0);
@@ -59,6 +80,41 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
     { value: "incoming", label: "Incoming", count: payments.filter((p) => p.direction === "INCOMING").length },
     { value: "outgoing", label: "Outgoing", count: payments.filter((p) => p.direction === "OUTGOING").length },
   ];
+
+  const handlePaymentSubmit = async (data: PaymentFormValues) => {
+    startTransition(async () => {
+      try {
+        if (editingPayment) {
+          await updatePayment(editingPayment.id, data);
+          toast.success("Payment updated successfully");
+        } else {
+          await createPayment(data);
+          toast.success("Payment recorded successfully");
+        }
+        setIsAddModalOpen(false);
+        setEditingPayment(null);
+        router.refresh();
+      } catch (err) {
+        toast.error("Failed to save payment");
+        console.error(err);
+      }
+    });
+  };
+
+  const handleDeletePayment = async () => {
+    if (!deletingPayment) return;
+    startTransition(async () => {
+      try {
+        await deletePayment(deletingPayment.id, deletingPayment.project_id);
+        toast.success("Payment deleted successfully");
+        setDeletingPayment(null);
+        router.refresh();
+      } catch (err) {
+        toast.error("Failed to delete payment");
+        console.error(err);
+      }
+    });
+  };
 
   const columns: ColumnDef<any, unknown>[] = useMemo(
     () => [
@@ -125,19 +181,6 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
         },
       },
       {
-        accessorKey: "referenceNo",
-        header: "Reference",
-        size: 150,
-        cell: ({ row }) =>
-          row.original.referenceNo ? (
-            <span className="text-xs font-mono text-text-muted">
-              {row.original.referenceNo}
-            </span>
-          ) : (
-            <span className="text-text-muted text-sm">—</span>
-          ),
-      },
-      {
         accessorKey: "amount",
         header: "Amount",
         size: 140,
@@ -163,13 +206,41 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
           );
         },
       },
+      {
+        id: "actions",
+        size: 50,
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditingPayment(p)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-danger-600 focus:text-danger-600"
+                  onClick={() => setDeletingPayment(p)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
     []
   );
 
   return (
     <div className="space-y-5 animate-fade-in-up">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -182,13 +253,12 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
             Track all incoming and outgoing payments.
           </p>
         </div>
-        <Button size="sm" onClick={() => setIsAddOpen(true)}>
+        <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
           <Plus size={16} />
           Record Payment
         </Button>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           title="Total Received"
@@ -210,14 +280,12 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
         />
       </div>
 
-      {/* Tabs */}
       <TabFilter
         tabs={tabs}
         activeTab={activeTab}
         onChange={(v) => setActiveTab(v as PaymentTab)}
       />
 
-      {/* Table */}
       <DataTable
         columns={columns}
         data={filtered}
@@ -226,34 +294,58 @@ export function BillingContent({ initialPayments, projects = [], contacts = [], 
         emptyTitle="No payments found"
         emptyDescription="No payments found for the selected filter."
         emptyAction={
-          <Button size="sm" variant="outline" onClick={() => setIsAddOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => setIsAddModalOpen(true)}>
             Record First Payment
           </Button>
         }
       />
 
       <AddPaymentModal
-        open={isAddOpen}
-        onOpenChange={setIsAddOpen}
+        open={isAddModalOpen || !!editingPayment}
+        onOpenChange={(open) => {
+          setIsAddModalOpen(open);
+          if (!open) setEditingPayment(null);
+        }}
         projects={projects}
         contacts={contacts}
-        onSubmit={(data) => {
-          if (isLive) {
-            startTransition(async () => {
-              try {
-                await createPayment(data);
-                router.refresh();
-                setIsAddOpen(false);
-              } catch (e) {
-                console.error("Failed to record payment:", e);
+        onSubmit={handlePaymentSubmit}
+        defaultValues={
+          editingPayment
+            ? {
+                projectId: editingPayment.projectId || "",
+                contactId: editingPayment.contactId || "",
+                amount: editingPayment.amount,
+                paymentDate: new Date(editingPayment.paymentDate).toISOString().split("T")[0],
+                paymentMethod: editingPayment.paymentMethod,
+                referenceNo: editingPayment.referenceNo || "",
+                paymentType: editingPayment.paymentType,
+                direction: editingPayment.direction,
+                notes: editingPayment.notes || "",
               }
-            });
-          } else {
-            console.warn("Mock payment creation not fully supported");
-            setIsAddOpen(false);
-          }
-        }}
+            : undefined
+        }
       />
+
+      <AlertDialog open={!!deletingPayment} onOpenChange={(open) => !open && setDeletingPayment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this payment record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger-600 text-white hover:bg-danger-700"
+              onClick={handleDeletePayment}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -171,3 +171,132 @@ export async function deleteProject(id: string) {
   if (error) throw new Error(`Failed to delete project: ${error.message}`);
   revalidatePath("/projects");
 }
+
+// ── Project Events ──
+
+export async function addProjectEvent(projectId: string, input: any) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_events").insert({
+    project_id: projectId,
+    event_type_id: input.eventTypeId,
+    event_date: input.eventDate,
+    start_time: input.startTime || null,
+    end_time: input.endTime || null,
+    venue: input.venue || null,
+    notes: input.notes || null,
+    sort_order: input.sortOrder || 0,
+  });
+  if (error) throw new Error(`Failed to add event: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updateProjectEvent(id: string, projectId: string, input: any) {
+  const supabase = await createClient();
+  const updateData: Record<string, any> = {};
+  if (input.eventTypeId !== undefined) updateData.event_type_id = input.eventTypeId;
+  if (input.eventDate !== undefined) updateData.event_date = input.eventDate;
+  if (input.startTime !== undefined) updateData.start_time = input.startTime || null;
+  if (input.endTime !== undefined) updateData.end_time = input.endTime || null;
+  if (input.venue !== undefined) updateData.venue = input.venue || null;
+  if (input.notes !== undefined) updateData.notes = input.notes || null;
+  if (input.sortOrder !== undefined) updateData.sort_order = input.sortOrder;
+
+  const { error } = await supabase.from("project_events").update(updateData).eq("id", id);
+  if (error) throw new Error(`Failed to update event: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteProjectEvent(id: string, projectId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_events").delete().eq("id", id);
+  if (error) throw new Error(`Failed to delete event: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+// ── Project Services ──
+
+export async function addProjectService(projectId: string, input: any) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_services").insert({
+    project_id: projectId,
+    service_id: input.serviceId,
+    quantity: input.quantity || 1,
+    unit_price: input.unitPrice,
+    notes: input.notes || null,
+  });
+  if (error) throw new Error(`Failed to add service: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updateProjectService(id: string, projectId: string, input: any) {
+  const supabase = await createClient();
+  const updateData: Record<string, any> = {};
+  if (input.serviceId !== undefined) updateData.service_id = input.serviceId;
+  if (input.quantity !== undefined) updateData.quantity = input.quantity;
+  if (input.unitPrice !== undefined) updateData.unit_price = input.unitPrice;
+  if (input.notes !== undefined) updateData.notes = input.notes || null;
+
+  const { error } = await supabase.from("project_services").update(updateData).eq("id", id);
+  if (error) throw new Error(`Failed to update service: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteProjectService(id: string, projectId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_services").delete().eq("id", id);
+  if (error) throw new Error(`Failed to delete service: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+// ── Project Crew ──
+
+export async function addProjectCrew(projectId: string, input: any) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_crew").insert({
+    project_id: projectId,
+    contact_id: input.contactId,
+    role: input.role,
+    daily_rate: input.dailyRate || null,
+    days: input.days || 1,
+    status: input.status || "ASSIGNED",
+    notes: input.notes || null,
+  });
+  if (error) throw new Error(`Failed to assign crew: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updateProjectCrew(id: string, projectId: string, input: any) {
+  const supabase = await createClient();
+  const updateData: Record<string, any> = {};
+  if (input.contactId !== undefined) updateData.contact_id = input.contactId;
+  if (input.role !== undefined) updateData.role = input.role;
+  if (input.dailyRate !== undefined) updateData.daily_rate = input.dailyRate || null;
+  if (input.days !== undefined) updateData.days = input.days;
+  if (input.status !== undefined) updateData.status = input.status;
+  if (input.notes !== undefined) updateData.notes = input.notes || null;
+
+  const { error } = await supabase.from("project_crew").update(updateData).eq("id", id);
+  if (error) throw new Error(`Failed to update crew: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteProjectCrew(id: string, projectId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_crew").delete().eq("id", id);
+  if (error) throw new Error(`Failed to remove crew: ${error.message}`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function getEventTypes() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("event_types").select("*").order("name");
+  if (error) throw new Error(`Failed to fetch event types: ${error.message}`);
+  return data;
+}
+
+export async function getServiceTypes() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("service_types").select("*").order("name");
+  if (error) throw new Error(`Failed to fetch service types: ${error.message}`);
+  return data;
+}

@@ -29,6 +29,7 @@ interface AddProjectModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: ProjectFormValues) => void;
   contacts: any[];
+  defaultValues?: Partial<ProjectFormValues>;
 }
 
 export function AddProjectModal({
@@ -36,7 +37,9 @@ export function AddProjectModal({
   onOpenChange,
   onSubmit,
   contacts,
+  defaultValues,
 }: AddProjectModalProps) {
+  const isEditing = !!defaultValues;
   const {
     register,
     handleSubmit,
@@ -46,7 +49,7 @@ export function AddProjectModal({
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema) as any,
-    defaultValues: {
+    defaultValues: defaultValues || {
       title: "",
       projectType: "DIRECT_BOOKING",
       status: "INQUIRY",
@@ -74,9 +77,9 @@ export function AddProjectModal({
       <DialogContent size="lg">
         <DialogCloseButton />
         <DialogHeader>
-          <DialogTitle>Add New Project</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Project" : "Add New Project"}</DialogTitle>
           <DialogDescription>
-            Fill in the details to create a new project.
+            {isEditing ? "Update project details." : "Fill in the details to create a new project."}
           </DialogDescription>
         </DialogHeader>
 
@@ -211,7 +214,7 @@ export function AddProjectModal({
               Cancel
             </Button>
             <Button type="submit" isLoading={isSubmitting}>
-              Create Project
+              {isEditing ? "Save Changes" : "Create Project"}
             </Button>
           </DialogFooter>
         </form>

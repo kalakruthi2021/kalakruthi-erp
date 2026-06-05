@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ProjectDetailContent } from "./project-detail-content";
-import { getProjectById } from "@/lib/actions/projects";
+import { getProjectById, getEventTypes, getServiceTypes } from "@/lib/actions/projects";
+import { getContacts } from "@/lib/actions/contacts";
 import { MOCK_PROJECTS } from "@/lib/data/mock-projects";
 
 export const metadata: Metadata = {
@@ -59,13 +60,24 @@ export default async function ProjectDetailPage({
   const { id } = await params;
 
   let project;
+  let eventTypes: any[] = [];
+  let serviceTypes: any[] = [];
+  let contacts: any[] = [];
   let isLive = false;
 
   try {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      const row = await getProjectById(id);
+      const [row, etRows, stRows, cRows] = await Promise.all([
+        getProjectById(id),
+        getEventTypes(),
+        getServiceTypes(),
+        getContacts()
+      ]);
       if (row) {
         project = toUIProject(row);
+        eventTypes = etRows;
+        serviceTypes = stRows;
+        contacts = cRows;
         isLive = true;
       }
     }
@@ -76,7 +88,16 @@ export default async function ProjectDetailPage({
   // Fallback to mock data if not live or not found
   if (!project) {
     project = MOCK_PROJECTS.find((p) => p.id === id);
+    eventTypes = [{id: "1", name: "Pre-Wedding"}, {id: "2", name: "Wedding"}, {id: "3", name: "Reception"}];
+    serviceTypes = [{id: "1", name: "Photography"}, {id: "2", name: "Videography"}];
+    contacts = [{id: "1", display_name: "John Doe"}, {id: "2", display_name: "Jane Smith"}];
   }
 
-  return <ProjectDetailContent project={project} isLive={isLive} />;
+  return <ProjectDetailContent 
+    project={project} 
+    isLive={isLive} 
+    eventTypes={eventTypes}
+    services={serviceTypes}
+    contacts={contacts}
+  />;
 }

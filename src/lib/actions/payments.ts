@@ -131,6 +131,27 @@ async function recalcProjectPayments(projectId: string) {
     .eq("id", projectId);
 }
 
+export async function updatePayment(id: string, input: Partial<CreatePaymentInput>) {
+  const supabase = await createClient();
+
+  const updateData: Record<string, unknown> = {};
+  if (input.projectId !== undefined) updateData.project_id = input.projectId;
+  if (input.contactId !== undefined) updateData.contact_id = input.contactId;
+  if (input.amount !== undefined) updateData.amount = input.amount;
+  if (input.paymentDate !== undefined) updateData.payment_date = input.paymentDate;
+  if (input.paymentMethod !== undefined) updateData.payment_method = input.paymentMethod;
+  if (input.referenceNo !== undefined) updateData.reference_no = input.referenceNo || null;
+  if (input.notes !== undefined) updateData.notes = input.notes || null;
+  if (input.paymentType !== undefined) updateData.payment_type = input.paymentType;
+  if (input.direction !== undefined) updateData.direction = input.direction;
+
+  const { error } = await supabase.from("payments").update(updateData).eq("id", id);
+  if (error) throw new Error(`Failed to update payment: ${error.message}`);
+
+  revalidatePath("/billing");
+  if (input.projectId) revalidatePath(`/projects/${input.projectId}`);
+}
+
 export async function deletePayment(id: string, projectId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("payments").delete().eq("id", id);
